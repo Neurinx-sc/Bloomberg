@@ -3,39 +3,46 @@
 let currentCandle = null;
 
 function startLiveStreaming() {
-    // Mengambil harga penutupan terakhir dari chart.js agar tidak lompat
-    let lastTickPrice = window.lastGeneratedPrice || 2341.50;
+    // Ambil candle terakhir dari chart.js
+    if (window.lastCandleState) {
+        currentCandle = window.lastCandleState;
+    }
 
     setInterval(() => {
         if (!candleSeries) return;
 
-        // Simulasi fluktuasi pergerakan pips Emas yang halus
-        const volatility = 0.25; 
-        const delta = (Math.random() - 0.49) * volatility;
-        lastTickPrice = Number((lastTickPrice + delta).toFixed(2));
-
+        const intervalSeconds = 900; // 15M
         const nowSeconds = Math.floor(Date.now() / 1000);
-        const currentCandleTime = Math.floor(nowSeconds / 900) * 900; // Align ke 15M
+        const candleTime = Math.floor(nowSeconds / intervalSeconds) * intervalSeconds;
 
-        if (!currentCandle || currentCandle.time !== currentCandleTime) {
+        // Ambil harga terakhir
+        let lastPrice = currentCandle ? currentCandle.close : 2341.50;
+        
+        // Pergerakan pips acak (+ / -)
+        const delta = (Math.random() - 0.49) * 0.35;
+        let newPrice = Number((lastPrice + delta).toFixed(2));
+
+        // Jika masuk ke interval candle baru (misal pergantian 15 menit)
+        if (!currentCandle || currentCandle.time !== candleTime) {
             currentCandle = {
-                time: currentCandleTime,
-                open: lastTickPrice,
-                high: lastTickPrice,
-                low: lastTickPrice,
-                close: lastTickPrice
+                time: candleTime,
+                open: newPrice,
+                high: newPrice,
+                low: newPrice,
+                close: newPrice
             };
         } else {
-            currentCandle.high = Math.max(currentCandle.high, lastTickPrice);
-            currentCandle.low = Math.min(currentCandle.low, lastTickPrice);
-            currentCandle.close = lastTickPrice;
+            // Update candle yang sedang berjalan
+            currentCandle.high = Math.max(currentCandle.high, newPrice);
+            currentCandle.low = Math.min(currentCandle.low, newPrice);
+            currentCandle.close = newPrice;
         }
 
-        // Update ke Candlestick Chart
+        // 1. Update ke Candlestick Chart (Menyambung candle secara seamless)
         candleSeries.update(currentCandle);
 
-        // Update ke Tabel Watchlist
-        updateWatchlistPrice('XAUUSD', lastTickPrice);
+        // 2. Update ke Tabel Watchlist
+        updateWatchlistPrice('XAUUSD', newPrice);
 
     }, 1200);
 }
@@ -66,6 +73,7 @@ function updateWatchlistPrice(symbol, newPrice) {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    setTimeout(startLiveStreaming, 800);
+    // Beri waktu sebentar agar chart.js selesai membuat data awal
+    setTimeout(startLiveStreaming, 500);
 });
-                    
+        
