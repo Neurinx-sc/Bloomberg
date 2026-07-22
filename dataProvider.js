@@ -1,29 +1,29 @@
-// --- Real-time Data Streaming Engine ---
+// --- Robust Live Data Streaming Engine ---
 
-let currentCandle = null;
+let liveIntervalId = null;
 
 function startLiveStreaming() {
-    // Ambil candle terakhir dari chart.js
-    if (window.lastCandleState) {
-        currentCandle = window.lastCandleState;
+    // Hentikan interval lama jika ada
+    if (liveIntervalId) {
+        clearInterval(liveIntervalId);
     }
 
-    setInterval(() => {
-        if (!candleSeries) return;
+    liveIntervalId = setInterval(() => {
+        if (!window.candleSeriesInstance || !window.lastCandleObj) return;
 
-        const intervalSeconds = 900; // 15M
+        const tfSeconds = window.activeTimeframeSeconds || 900;
         const nowSeconds = Math.floor(Date.now() / 1000);
-        const candleTime = Math.floor(nowSeconds / intervalSeconds) * intervalSeconds;
+        const candleTime = Math.floor(nowSeconds / tfSeconds) * tfSeconds;
 
-        // Ambil harga terakhir
-        let lastPrice = currentCandle ? currentCandle.close : 2341.50;
-        
-        // Pergerakan pips acak (+ / -)
-        const delta = (Math.random() - 0.49) * 0.35;
+        let currentCandle = window.lastCandleObj;
+        let lastPrice = currentCandle.close;
+
+        // Simulasi fluktuasi harga kecil (+/- pips)
+        const delta = (Math.random() - 0.49) * 0.30;
         let newPrice = Number((lastPrice + delta).toFixed(2));
 
-        // Jika masuk ke interval candle baru (misal pergantian 15 menit)
-        if (!currentCandle || currentCandle.time !== candleTime) {
+        // Jika waktu berpindah ke candle baru
+        if (currentCandle.time !== candleTime) {
             currentCandle = {
                 time: candleTime,
                 open: newPrice,
@@ -32,20 +32,36 @@ function startLiveStreaming() {
                 close: newPrice
             };
         } else {
-            // Update candle yang sedang berjalan
+            // Update candle aktif
             currentCandle.high = Math.max(currentCandle.high, newPrice);
             currentCandle.low = Math.min(currentCandle.low, newPrice);
             currentCandle.close = newPrice;
         }
 
-        // 1. Update ke Candlestick Chart (Menyambung candle secara seamless)
-        candleSeries.update(currentCandle);
+        // Simpan state terbaru
+        window.lastCandleObj = currentCandle;
 
-        // 2. Update ke Tabel Watchlist
+        // Update ke Chart Tanpa Merusak Skala
+        window.candleSeriesInstance.update(currentCandle);
+
+        // Update Watchlist
         updateWatchlistPrice('XAUUSD', newPrice);
 
     }, 1200);
 }
+
+// Fungsi reset jika ganti timeframe
+window.restartLiveEngine = function() {
+    if (liveIntervalId) clearInterval(liveIntervalId);
+    
+    // Reset data historis untuk timeframe baru
+    if (typeof loadChartData === 'function') {
+        loadChartData(window.activeTimeframeSeconds);
+    }
+    
+    // Jalankan kembali streaming
+    startLiveStreaming();
+};
 
 function updateWatchlistPrice(symbol, newPrice) {
     const tableRows = document.querySelectorAll('.watchlist-area table tbody tr');
@@ -72,8 +88,8 @@ function updateWatchlistPrice(symbol, newPrice) {
     });
 }
 
+// Inisialisasi awal saat halaman siap
 document.addEventListener('DOMContentLoaded', () => {
-    // Beri waktu sebentar agar chart.js selesai membuat data awal
-    setTimeout(startLiveStreaming, 500);
+    setTimeout(startLiveStreaming, 600);
 });
-        
+    
