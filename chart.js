@@ -1,7 +1,6 @@
 // --- Inisialisasi TradingView Lightweight Charts ---
 const chartContainer = document.getElementById('tvchart');
 
-// 1. Buat Instance Chart
 const chart = LightweightCharts.createChart(chartContainer, {
     width: chartContainer.clientWidth || 300,
     height: 380,
@@ -18,6 +17,7 @@ const chart = LightweightCharts.createChart(chartContainer, {
     },
     rightPriceScale: {
         borderColor: '#222222',
+        autoScale: true, // Memaksa chart selalu auto-fit ke harga terbaru
     },
     timeScale: {
         borderColor: '#222222',
@@ -26,7 +26,6 @@ const chart = LightweightCharts.createChart(chartContainer, {
     },
 });
 
-// 2. Tambahkan Seri Candlestick (Dukungan Aman Versi 4 & 5)
 let candleSeries;
 if (typeof chart.addCandlestickSeries === 'function') {
     candleSeries = chart.addCandlestickSeries({
@@ -48,20 +47,22 @@ if (typeof chart.addCandlestickSeries === 'function') {
     });
 }
 
-// 3. Generator Data Dummy XAUUSD (UNIX Timestamp dalam Detik)
+// Global variable agar bisa diakses oleh dataProvider.js
+window.lastGeneratedPrice = 2341.50;
+
 function generateDummyData() {
     const data = [];
     let nowSeconds = Math.floor(Date.now() / 1000);
-    let startTime = nowSeconds - (200 * 14400); // 200 candle
-    let lastClose = 2341.50;
+    let startTime = nowSeconds - (100 * 900); // 100 candle M15
+    let lastClose = 2335.00; // Mulai dari harga lebih rendah agar mendekati 2341 saat ini
 
-    for (let i = 0; i < 200; i++) {
-        let candleTime = startTime + (i * 14400);
+    for (let i = 0; i < 100; i++) {
+        let candleTime = startTime + (i * 900);
         let open = lastClose;
-        let change = (Math.random() - 0.48) * 6;
+        let change = (Math.random() - 0.48) * 1.5; // Volatilitas lebih realistis
         let close = open + change;
-        let high = Math.max(open, close) + (Math.random() * 3);
-        let low = Math.min(open, close) - (Math.random() * 3);
+        let high = Math.max(open, close) + (Math.random() * 0.8);
+        let low = Math.min(open, close) - (Math.random() * 0.8);
 
         data.push({
             time: candleTime,
@@ -72,17 +73,18 @@ function generateDummyData() {
         });
         lastClose = close;
     }
+    
+    // Simpan harga close terakhir untuk disambung live streaming
+    window.lastGeneratedPrice = lastClose;
     return data;
 }
 
-// 4. Render Data ke Chart
 if (candleSeries) {
     const candleData = generateDummyData();
     candleSeries.setData(candleData);
     chart.timeScale().fitContent();
 }
 
-// 5. Fitur Auto-Resize
 window.addEventListener('resize', () => {
     if (chartContainer) {
         chart.applyOptions({
@@ -92,7 +94,7 @@ window.addEventListener('resize', () => {
     }
 });
 
-// 6. Event Listener Tombol Fullscreen (⛶)
+// Fullscreen Control
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const chartWrapper = document.getElementById('chart-container-wrapper');
 
@@ -114,7 +116,7 @@ if (fullscreenBtn && chartWrapper) {
     });
 }
 
-// 7. Event Listener Tombol Timeframe (15M, 1H, 4H, 1D)
+// Timeframe Buttons
 const tfButtons = document.querySelectorAll('.tf-btn');
 tfButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -126,4 +128,4 @@ tfButtons.forEach(btn => {
         }
     });
 });
-                
+                    
