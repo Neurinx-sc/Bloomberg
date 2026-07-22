@@ -1,6 +1,14 @@
-// --- Live Streaming Engine (Sinkronisasi Global) ---
+// --- Multi-Asset Live Streaming & Memory Optimization Engine ---
 
 let liveIntervalId = null;
+
+// State harga dasar untuk instrumen Watchlist lainnya
+const marketState = {
+    XAUUSD: { base: 2335.00, price: 2341.50, decimals: 2, vol: 0.30 },
+    DXY:    { base: 104.40,  price: 104.25,  decimals: 2, vol: 0.05 },
+    EURUSD: { base: 1.0830,  price: 1.0850,  decimals: 4, vol: 0.0004 },
+    GBPUSD: { base: 1.2655,  price: 1.2640,  decimals: 4, vol: 0.0005 }
+};
 
 function startLiveStreaming() {
     if (liveIntervalId) clearInterval(liveIntervalId);
@@ -8,24 +16,38 @@ function startLiveStreaming() {
     liveIntervalId = setInterval(() => {
         if (!window.candleSeriesInstance || !window.tfDataCache) return;
 
-        // 1. Update Harga Terpusat (Global Price)
-        const delta = (Math.random() - 0.49) * 0.30;
-        window.currentGlobalPrice = Number((window.currentGlobalPrice + delta).toFixed(2));
+        // 1. Update Semua Instrumen Pasar di Watchlist
+        Object.keys(marketState).forEach(symbol => {
+            const item = marketState[symbol];
+            const delta = (Math.random() - 0.49) * item.vol;
+            item.price = Number((item.price + delta).toFixed(item.decimals));
 
+            // Jika symbol ini adalah XAUUSD, sinkronkan ke chart
+            if (symbol === 'XAUUSD') {
+                window.currentGlobalPrice = item.price;
+            }
+
+            // Update baris tabel watchlist terkait
+            updateWatchlistRow(symbol, item.price, item.base, item.decimals);
+        });
+
+        // 2. Handling Update Chart Candlestick (XAUUSD)
         const tfLabel = window.activeTimeframeLabel;
         const tfSeconds = window.activeTimeframeSeconds;
         const nowSeconds = Math.floor(Date.now() / 1000);
         const currentCandleTime = Math.floor(nowSeconds / tfSeconds) * tfSeconds;
 
-        // 2. Ambil data dari Cache TF yang sedang aktif
         let activeDataArray = window.tfDataCache[tfLabel];
         if (!activeDataArray) return;
-        
+
+        // Prevent Memory Leak: Batasi array max 150 items
+        if (activeDataArray.length > 150) {
+            activeDataArray.shift();
+        }
+
         let lastCandle = activeDataArray[activeDataArray.length - 1];
 
-        // 3. Logika Update Candle (Garis Hijau menempel sempurna)
         if (lastCandle.time !== currentCandleTime) {
-            // Jika jamnya sudah ganti, buat candle baru
             const newCandle = {
                 time: currentCandleTime,
                 open: window.currentGlobalPrice,
@@ -36,35 +58,34 @@ function startLiveStreaming() {
             activeDataArray.push(newCandle);
             lastCandle = newCandle;
         } else {
-            // Update candle yang sedang berjalan
             lastCandle.close = window.currentGlobalPrice;
             lastCandle.high = Math.max(lastCandle.high, window.currentGlobalPrice);
             lastCandle.low = Math.min(lastCandle.low, window.currentGlobalPrice);
         }
 
-        // 4. Render ke layar
+        // Render update ke chart
         window.candleSeriesInstance.update(lastCandle);
-
-        // 5. Update Watchlist Table
-        updateWatchlistPrice('XAUUSD', window.currentGlobalPrice);
 
     }, 1200);
 }
 
-function updateWatchlistPrice(symbol, newPrice) {
+// Helper untuk update UI tabel dengan komparasi numerik aman
+function updateWatchlistRow(symbol, newPrice, basePrice, decimals) {
     const tableRows = document.querySelectorAll('.watchlist-area table tbody tr');
+    
     tableRows.forEach(row => {
         const symbolCell = row.cells[0];
         if (symbolCell && symbolCell.textContent.trim() === symbol) {
             const priceCell = row.cells[1];
             const changeCell = row.cells[2];
             
-            const basePrice = 2335.00;
-            const diff = (newPrice - basePrice).toFixed(2);
+            // Komparasi Numerik Murni (Mencegah bug perbandingan string)
+            const diffNumeric = newPrice - basePrice;
+            const diffText = (diffNumeric >= 0 ? '+' : '') + diffNumeric.toFixed(decimals);
             
-            priceCell.textContent = newPrice.toFixed(2);
-            changeCell.textContent = (diff >= 0 ? '+' : '') + diff;
-            changeCell.className = diff >= 0 ? 'up' : 'down';
+            priceCell.textContent = newPrice.toFixed(decimals);
+            changeCell.textContent = diffText;
+            changeCell.className = diffNumeric >= 0 ? 'up' : 'down';
         }
     });
 }
@@ -72,4 +93,4 @@ function updateWatchlistPrice(symbol, newPrice) {
 document.addEventListener('DOMContentLoaded', () => {
     setTimeout(startLiveStreaming, 800);
 });
-        
+                
