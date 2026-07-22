@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Terminal Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="app-container">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-brand">TERMINAL</div>
+            <nav class="sidebar-nav">
+                <a href="#" class="active">📊 Dashboard</a>
+                <a href="#">📈 Markets</a>
+                <a href="#">📰 News</a>
+                <a href="#">⚙️ Settings</a>
+            </nav>
+        </aside>
+
+        <main class="main-content">
+            <header class="header">
+                <div class="mobile-menu" id="mobile-menu">☰</div>
+                <div class="search-bar">
+                    <input type="text" placeholder="Search instruments (e.g., XAUUSD, DXY)...">
+                </div>
+                <div class="header-info">
+                    <span id="clock">00:00:00 WIB</span>
+                    <div class="user-profile">IB</div>
+                </div>
+            </header>
+
+            <div class="dashboard-grid">
+                <section class="card chart-area">
+                    <div class="card-header">
+                        <h2>XAUUSD - Spot Gold</h2>
+                        <span class="badge green">LIVE</span>
+                    </div>
+                    <div class="chart-placeholder">
+                        <p>[ Area Chart Kosong ]</p>
+                        <span class="chart-note">Siap diintegrasikan dengan TradingView Lightweight Charts atau Chart.js</span>
+                    </div>
+                </section>
+
+                <section class="card watchlist-area">
+                    <div class="card-header">
+                        <h2>Watchlist</h2>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Symbol</th>
+                                <th>Last</th>
+                                <th>Chg</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>XAUUSD</td>
+                                <td>2341.50</td>
+                                <td class="up">+12.30</td>
+                            </tr>
+                            <tr>
+                                <td>DXY</td>
+                                <td>104.25</td>
+                                <td class="down">-0.15</td>
+                            </tr>
+                            <tr>
+                                <td>EURUSD</td>
+                                <td>1.0850</td>
+                                <td class="up">+0.0020</td>
+                            </tr>
+                            <tr>
+                                <td>GBPUSD</td>
+                                <td>1.2640</td>
+                                <td class="down">-0.0015</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+
+                <section class="card news-area">
+                    <div class="card-header">
+                        <h2>Latest News</h2>
+                    </div>
+                    <div class="news-list">
+                        <div class="news-item">
+                            <span class="news-time">10:45</span>
+                            <p>Gold holds near record highs as markets await FOMC minutes.</p>
+                        </div>
+                        <div class="news-item">
+                            <span class="news-time">09:30</span>
+                            <p>US Dollar Index (DXY) stabilizes above 104 support level.</p>
+                        </div>
+                        <div class="news-item">
+                            <span class="news-time">08:15</span>
+                            <p>Asian equities mixed; investors weigh global inflation data.</p>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="card calendar-area">
+                    <div class="card-header">
+                        <h2>Economic Calendar</h2>
+                    </div>
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Time</th>
+                                <th>Event</th>
+                                <th>Imp</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>19:30</td>
+                                <td>Core CPI (MoM) (US)</td>
+                                <td class="high-impact">High</td>
+                            </tr>
+                            <tr>
+                                <td>19:30</td>
+                                <td>Initial Jobless Claims</td>
+                                <td class="mid-impact">Med</td>
+                            </tr>
+                            <tr>
+                                <td>21:00</td>
+                                <td>CB Consumer Confidence</td>
+                                <td class="high-impact">High</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </section>
+            </div>
+        </main>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
