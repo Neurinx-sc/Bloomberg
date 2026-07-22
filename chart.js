@@ -1,29 +1,34 @@
 // --- Inisialisasi TradingView Lightweight Charts ---
-const chartProperties = {
+const chartContainer = document.getElementById('tvchart');
+
+// 1. Buat Instance Chart dengan Ukuran Pasti
+const chart = LightweightCharts.createChart(chartContainer, {
+    width: chartContainer.clientWidth || 300,
+    height: 360, // Tinggi pasti agar chart tidak kempes
     layout: {
-        background: { type: 'solid', color: '#111111' }, // Warna background panel gelap
+        background: { type: 'solid', color: '#111111' },
         textColor: '#888888',
     },
     grid: {
-        vertLines: { color: '#222222', style: 1 },
-        horzLines: { color: '#222222', style: 1 },
+        vertLines: { color: '#222222' },
+        horzLines: { color: '#222222' },
     },
     crosshair: {
         mode: LightweightCharts.CrosshairMode.Normal,
-        vertLine: { width: 1, color: '#888888', style: 3, labelBackgroundColor: '#222222' },
-        horzLine: { width: 1, color: '#888888', style: 3, labelBackgroundColor: '#222222' },
     },
-    rightPriceScale: { borderColor: '#222222' },
-    timeScale: { borderColor: '#222222', timeVisible: true, secondsVisible: false },
-};
+    rightPriceScale: {
+        borderColor: '#222222',
+    },
+    timeScale: {
+        borderColor: '#222222',
+        timeVisible: true,
+        secondsVisible: false,
+    },
+});
 
-// Pasang chart ke dalam elemen HTML
-const chartContainer = document.getElementById('tvchart');
-const chart = LightweightCharts.createChart(chartContainer, chartProperties);
-
-// Konfigurasi visual Candlestick (Warna Neon/Terminal)
+// 2. Tambahkan Seri Candlestick (Warna Emas/Terminal)
 const candleSeries = chart.addCandlestickSeries({
-    upColor: '#00ff00',      // Bullish Hijau
+    upColor: '#00ff00',      // Bullish Hijau Neon
     downColor: '#ff3333',    // Bearish Merah
     borderDownColor: '#ff3333',
     borderUpColor: '#00ff00',
@@ -31,63 +36,75 @@ const candleSeries = chart.addCandlestickSeries({
     wickUpColor: '#00ff00',
 });
 
-// --- Fungsi Pembuat Data Dummy (Simulasi XAUUSD) ---
+// 3. Generator Data Dummy XAUUSD (Format Timestamp Bulat/Integer)
 function generateDummyData() {
-    let data = [];
-    let time = new Date(Date.now() - 100 * 24 * 60 * 60 * 1000); 
-    let lastClose = 2300.50; // Harga emas kisaran 2300
+    const data = [];
+    let nowSeconds = Math.floor(Date.now() / 1000);
+    // Mundur 200 candle (masing-masing 4 jam = 14400 detik)
+    let startTime = nowSeconds - (200 * 14400); 
+    let lastClose = 2341.50; // Opening price Emas
 
     for (let i = 0; i < 200; i++) {
-        time.setHours(time.getHours() + 4); 
+        let candleTime = startTime + (i * 14400); // Pasti Integer Bulat!
         let open = lastClose;
-        let high = open + (Math.random() * 10);
-        let low = open - (Math.random() * 10);
-        let close = low + (Math.random() * (high - low));
-        
+        let change = (Math.random() - 0.48) * 6; 
+        let close = open + change;
+        let high = Math.max(open, close) + (Math.random() * 3);
+        let low = Math.min(open, close) - (Math.random() * 3);
+
         data.push({
-            time: time.getTime() / 1000,
-            open: parseFloat(open.toFixed(2)),
-            high: parseFloat(high.toFixed(2)),
-            low: parseFloat(low.toFixed(2)),
-            close: parseFloat(close.toFixed(2))
+            time: candleTime,
+            open: Number(open.toFixed(2)),
+            high: Number(high.toFixed(2)),
+            low: Number(low.toFixed(2)),
+            close: Number(close.toFixed(2))
         });
         lastClose = close;
     }
     return data;
 }
 
-// Masukkan data ke dalam chart
-candleSeries.setData(generateDummyData());
+// 4. Masukkan Data & Auto-Fit ke Layar
+const candleData = generateDummyData();
+candleSeries.setData(candleData);
+chart.timeScale().fitContent(); // Memaksa chart memenuhi area tampilan
 
-// --- Fitur Auto Resize (Responsive) ---
-new ResizeObserver(entries => {
-    if (entries.length === 0 || entries[0].target !== chartContainer) { return; }
-    const newRect = entries[0].contentRect;
-    chart.applyOptions({ height: newRect.height, width: newRect.width });
-}).observe(chartContainer);
+// 5. Fitur Auto-Resize saat Ukuran Layar Berubah
+window.addEventListener('resize', () => {
+    chart.applyOptions({
+        width: chartContainer.clientWidth,
+        height: 360
+    });
+});
 
-// --- Fitur Fullscreen ---
+// 6. Fitur Fullscreen Tombol ⛶
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const chartWrapper = document.getElementById('chart-container-wrapper');
 
-fullscreenBtn.addEventListener('click', () => {
-    if (!document.fullscreenElement) {
-        chartWrapper.requestFullscreen().catch(err => {
-            console.error(`Error fullscreen: ${err.message}`);
-        });
-    } else {
-        document.exitFullscreen();
-    }
-});
+if (fullscreenBtn && chartWrapper) {
+    fullscreenBtn.addEventListener('click', () => {
+        if (!document.fullscreenElement) {
+            if (chartWrapper.requestFullscreen) {
+                chartWrapper.requestFullscreen();
+            } else if (chartWrapper.webkitRequestFullscreen) { // Browser HP/Safari
+                chartWrapper.webkitRequestFullscreen();
+            }
+        } else {
+            if (document.exitFullscreen) {
+                document.exitFullscreen();
+            }
+        }
+    });
+}
 
-// --- Fitur Ganti Timeframe (UI) ---
+// 7. Tombol Timeframe (15M, 1H, 4H, 1D)
 const tfButtons = document.querySelectorAll('.tf-btn');
 tfButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
         tfButtons.forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-        
-        // Regenerasi data agar terlihat chart berubah saat tombol diklik
         candleSeries.setData(generateDummyData());
+        chart.timeScale().fitContent();
     });
 });
+    
