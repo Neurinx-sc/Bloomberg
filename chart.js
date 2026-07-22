@@ -1,9 +1,9 @@
-// --- Lightweight Charts Controller (dengan Cache Management) ---
+// --- Lightweight Charts Controller (dengan Responsive Height) ---
 const chartContainer = document.getElementById('tvchart');
 
 const chart = LightweightCharts.createChart(chartContainer, {
     width: chartContainer.clientWidth || 300,
-    height: 380,
+    height: chartContainer.clientHeight || 380,
     layout: { background: { type: 'solid', color: '#111111' }, textColor: '#888888' },
     grid: { vertLines: { color: '#222222' }, horzLines: { color: '#222222' } },
     crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
@@ -20,8 +20,8 @@ let candleSeries = chart.addCandlestickSeries({
 // GLOBAL STATE MANAGEMENT
 window.chartInstance = chart;
 window.candleSeriesInstance = candleSeries;
-window.tfDataCache = {}; // Memori penyimpan data chart per TF
-window.currentGlobalPrice = 2341.50; // HARGA ACUAN UTAMA
+window.tfDataCache = {}; 
+window.currentGlobalPrice = 2341.50; 
 window.activeTimeframeLabel = '15M';
 window.activeTimeframeSeconds = 900;
 
@@ -35,9 +35,7 @@ function getTFSeconds(tfLabel) {
     }
 }
 
-// Fungsi membuat data HANYA SEKALI per Timeframe
 function getOrCreateChartData(tfLabel, tfSeconds) {
-    // Jika data sudah ada di memori, panggil ulang (jangan diacak lagi)
     if (window.tfDataCache[tfLabel]) {
         return window.tfDataCache[tfLabel];
     }
@@ -47,7 +45,7 @@ function getOrCreateChartData(tfLabel, tfSeconds) {
     const currentCandleTime = Math.floor(nowSeconds / tfSeconds) * tfSeconds;
     
     let startTime = currentCandleTime - (100 * tfSeconds);
-    let lastClose = window.currentGlobalPrice - (Math.random() * 15); // Harga mulai agak di bawah
+    let lastClose = window.currentGlobalPrice - (Math.random() * 15);
 
     for (let i = 0; i < 100; i++) {
         let candleTime = startTime + (i * tfSeconds);
@@ -56,7 +54,6 @@ function getOrCreateChartData(tfLabel, tfSeconds) {
         let change = (Math.random() - 0.48) * vol;
         let close = open + change;
 
-        // Kunci candle terakhir agar SAMA PERSIS dengan harga live saat ini
         if (i === 99) close = window.currentGlobalPrice;
 
         let high = Math.max(open, close) + (Math.random() * vol * 0.5);
@@ -66,17 +63,14 @@ function getOrCreateChartData(tfLabel, tfSeconds) {
         lastClose = close;
     }
 
-    // Simpan ke memori Cache
     window.tfDataCache[tfLabel] = data;
     return data;
 }
 
-// Fungsi load chart ke layar
 function loadChartUI(tfLabel) {
     const tfSeconds = getTFSeconds(tfLabel);
     const data = getOrCreateChartData(tfLabel, tfSeconds);
     
-    // Sinkronisasi paksa candle terakhir dengan harga live detik ini
     if (data.length > 0) {
         let lastCandle = data[data.length - 1];
         lastCandle.close = window.currentGlobalPrice;
@@ -85,17 +79,21 @@ function loadChartUI(tfLabel) {
     }
 
     candleSeries.setData(data);
-    chart.timeScale().fitContent(); // Rapikan zoom
+    chart.timeScale().fitContent();
 }
 
-// Inisialisasi awal
 loadChartUI('15M');
 
+// Fix Chart Height & Width Responsiveness
 window.addEventListener('resize', () => {
-    if (chartContainer) chart.applyOptions({ width: chartContainer.clientWidth, height: 380 });
+    if (chartContainer && window.chartInstance) {
+        const newWidth = chartContainer.clientWidth;
+        const newHeight = chartContainer.clientHeight || 380;
+        window.chartInstance.applyOptions({ width: newWidth, height: newHeight });
+    }
 });
 
-// Timeframe Switcher (Aman & Stabil)
+// Timeframe Buttons
 const tfButtons = document.querySelectorAll('.tf-btn');
 tfButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -109,7 +107,7 @@ tfButtons.forEach(btn => {
     });
 });
 
-// Fullscreen
+// Fullscreen Control
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const chartWrapper = document.getElementById('chart-container-wrapper');
 if (fullscreenBtn && chartWrapper) {
@@ -117,4 +115,5 @@ if (fullscreenBtn && chartWrapper) {
         if (!document.fullscreenElement) chartWrapper.requestFullscreen?.() || chartWrapper.webkitRequestFullscreen?.();
         else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
     });
-            }
+    }
+    
