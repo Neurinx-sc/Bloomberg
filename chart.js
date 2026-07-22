@@ -117,4 +117,4 @@ if (fullscreenBtn && chartWrapper) {
         if (!document.fullscreenElement) chartWrapper.requestFullscreen?.() || chartWrapper.webkitRequestFullscreen?.();
         else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
     });
-}
+            }
