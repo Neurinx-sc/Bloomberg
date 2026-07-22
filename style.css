@@ -277,3 +277,54 @@ body {
         width: 150px;
     }
 }
+/* Chart Controls & Timeframe */
+.header-left {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.chart-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.timeframes {
+    display: flex;
+    gap: 5px;
+}
+
+.tf-btn, .fs-btn {
+    background-color: transparent;
+    border: 1px solid var(--border-color);
+    color: var(--text-muted);
+    padding: 4px 8px;
+    border-radius: 3px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    transition: all 0.2s;
+}
+
+.tf-btn:hover, .fs-btn:hover {
+    color: var(--text-main);
+    border-color: var(--text-main);
+}
+
+.tf-btn.active {
+    background-color: rgba(255, 138, 0, 0.1);
+    color: var(--accent);
+    border-color: var(--accent);
+}
+
+/* Fullscreen mode */
+#chart-container-wrapper:-webkit-full-screen {
+    background-color: var(--bg-base);
+    width: 100vw;
+    height: 100vh;
+}
+#chart-container-wrapper:fullscreen {
+    background-color: var(--bg-base);
+    width: 100vw;
+    height: 100vh;
+}
