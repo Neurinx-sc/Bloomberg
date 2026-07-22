@@ -1,4 +1,4 @@
-// --- Inisialisasi TradingView Lightweight Charts ---
+// --- Lightweight Charts Controller ---
 const chartContainer = document.getElementById('tvchart');
 
 const chart = LightweightCharts.createChart(chartContainer, {
@@ -26,74 +26,70 @@ const chart = LightweightCharts.createChart(chartContainer, {
     },
 });
 
-let candleSeries;
-if (typeof chart.addCandlestickSeries === 'function') {
-    candleSeries = chart.addCandlestickSeries({
-        upColor: '#00ff00',
-        downColor: '#ff3333',
-        borderDownColor: '#ff3333',
-        borderUpColor: '#00ff00',
-        wickDownColor: '#ff3333',
-        wickUpColor: '#00ff00',
-    });
-} else if (LightweightCharts.CandlestickSeries) {
-    candleSeries = chart.addSeries(LightweightCharts.CandlestickSeries, {
-        upColor: '#00ff00',
-        downColor: '#ff3333',
-        borderDownColor: '#ff3333',
-        borderUpColor: '#00ff00',
-        wickDownColor: '#ff3333',
-        wickUpColor: '#00ff00',
-    });
+// Inisialisasi Candlestick Series
+let candleSeries = chart.addCandlestickSeries({
+    upColor: '#00ff00',
+    downColor: '#ff3333',
+    borderDownColor: '#ff3333',
+    borderUpColor: '#00ff00',
+    wickDownColor: '#ff3333',
+    wickUpColor: '#00ff00',
+});
+
+// Global Variables
+window.chartInstance = chart;
+window.candleSeriesInstance = candleSeries;
+window.activeTimeframeSeconds = 900; // Default 15M (900s)
+window.lastCandleObj = null;
+
+// Helper: Konversi Kode TF ke Detik
+function getTFSeconds(tfLabel) {
+    switch (tfLabel) {
+        case '15M': return 900;
+        case '1H':  return 3600;
+        case '4H':  return 14400;
+        case '1D':  return 86400;
+        default:    return 900;
+    }
 }
 
-// Simpan data state ke window
-window.lastCandleState = null;
-
-function generateDummyData() {
+// Generator Data Historis yang Presisi
+function loadChartData(tfSeconds) {
     const data = [];
-    const intervalSeconds = 900; // Timeframe 15M (900 detik)
     const nowSeconds = Math.floor(Date.now() / 1000);
+    const currentCandleTime = Math.floor(nowSeconds / tfSeconds) * tfSeconds;
     
-    // Tentukan waktu candle aktif saat ini
-    const currentCandleTime = Math.floor(nowSeconds / intervalSeconds) * intervalSeconds;
-    
-    // Hitung mundur 80 candle dari sekarang
-    let startTime = currentCandleTime - (80 * intervalSeconds);
-    let lastClose = 2335.00; // Harga awal
+    let startTime = currentCandleTime - (100 * tfSeconds);
+    let lastClose = 2340.00;
 
-    for (let i = 0; i < 80; i++) {
-        let candleTime = startTime + (i * intervalSeconds);
+    for (let i = 0; i < 100; i++) {
+        let candleTime = startTime + (i * tfSeconds);
         let open = lastClose;
-        let change = (Math.random() - 0.48) * 1.2;
+        let change = (Math.random() - 0.48) * (tfSeconds / 300); 
         let close = open + change;
-        let high = Math.max(open, close) + (Math.random() * 0.6);
-        let low = Math.min(open, close) - (Math.random() * 0.6);
+        let high = Math.max(open, close) + (Math.random() * 0.8);
+        let low = Math.min(open, close) - (Math.random() * 0.8);
 
-        let candleObj = {
+        data.push({
             time: candleTime,
             open: Number(open.toFixed(2)),
             high: Number(high.toFixed(2)),
             low: Number(low.toFixed(2)),
             close: Number(close.toFixed(2))
-        };
-
-        data.push(candleObj);
+        });
         lastClose = close;
     }
 
-    // Simpan candle terakhir agar disambung oleh dataProvider.js secara persis
-    window.lastCandleState = Object.assign({}, data[data.length - 1]);
-    return data;
-}
-
-if (candleSeries) {
-    const candleData = generateDummyData();
-    candleSeries.setData(candleData);
+    // Simpan candle paling akhir
+    window.lastCandleObj = Object.assign({}, data[data.length - 1]);
+    candleSeries.setData(data);
     chart.timeScale().fitContent();
 }
 
-// Auto Resize
+// Load Awal (Default 15M)
+loadChartData(window.activeTimeframeSeconds);
+
+// Auto Resize Screen
 window.addEventListener('resize', () => {
     if (chartContainer) {
         chart.applyOptions({
@@ -125,15 +121,22 @@ if (fullscreenBtn && chartWrapper) {
     });
 }
 
-// Timeframe switcher
+// Handler Tombol Timeframe (Mencegah Crash)
 const tfButtons = document.querySelectorAll('.tf-btn');
 tfButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
         tfButtons.forEach(b => b.classList.remove('active'));
         e.target.classList.add('active');
-        if (candleSeries) {
-            candleSeries.setData(generateDummyData());
-            chart.timeScale().fitContent();
+
+        const selectedTF = e.target.textContent.trim();
+        window.activeTimeframeSeconds = getTFSeconds(selectedTF);
+
+        // Hentikan streaming sejenak, muat data baru, lalu restart streaming
+        if (typeof window.restartLiveEngine === 'function') {
+            window.restartLiveEngine();
+        } else {
+            loadChartData(window.activeTimeframeSeconds);
         }
     });
 });
+                    
