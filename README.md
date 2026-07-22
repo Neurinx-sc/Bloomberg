@@ -1,0 +1,2 @@
+# Bloomberg
+Tools forex technical 
