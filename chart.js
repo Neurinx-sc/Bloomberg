@@ -1,119 +1,162 @@
-// --- Lightweight Charts Controller (dengan Responsive Height) ---
-const chartContainer = document.getElementById('tvchart');
+/**
+ * Real-Time Market Chart Engine (chart.js)
+ * Powered by TradingView Lightweight Charts & Binance Public API / WebSocket
+ */
 
-const chart = LightweightCharts.createChart(chartContainer, {
-    width: chartContainer.clientWidth || 300,
-    height: chartContainer.clientHeight || 380,
-    layout: { background: { type: 'solid', color: '#111111' }, textColor: '#888888' },
-    grid: { vertLines: { color: '#222222' }, horzLines: { color: '#222222' } },
-    crosshair: { mode: LightweightCharts.CrosshairMode.Normal },
-    rightPriceScale: { borderColor: '#222222', autoScale: true },
-    timeScale: { borderColor: '#222222', timeVisible: true, secondsVisible: false },
-});
+let chart;
+let candlestickSeries;
+let wsSocket = null;
+let currentSymbol = 'PAXGUSDT'; // PAXG1:1 Emas / XAUUSD
+let currentInterval = '15m';
 
-let candleSeries = chart.addCandlestickSeries({
-    upColor: '#00ff00', downColor: '#ff3333',
-    borderDownColor: '#ff3333', borderUpColor: '#00ff00',
-    wickDownColor: '#ff3333', wickUpColor: '#00ff00',
-});
+// Mapping interval UI ke format Binance API
+const timeframeMap = {
+    '15M': '15m',
+    '1H': '1h',
+    '4H': '4h',
+    '1D': '1d'
+};
 
-// GLOBAL STATE MANAGEMENT
-window.chartInstance = chart;
-window.candleSeriesInstance = candleSeries;
-window.tfDataCache = {}; 
-window.currentGlobalPrice = 2341.50; 
-window.activeTimeframeLabel = '15M';
-window.activeTimeframeSeconds = 900;
+// --- 1. Inisialisasi TradingView Lightweight Chart ---
+function initChart() {
+    const chartContainer = document.getElementById('chart-container') || document.querySelector('.chart-area');
+    if (!chartContainer) return;
 
-function getTFSeconds(tfLabel) {
-    switch (tfLabel) {
-        case '15M': return 900;
-        case '1H': return 3600;
-        case '4H': return 14400;
-        case '1D': return 86400;
-        default: return 900;
-    }
-}
+    // Bersihkan kontainer jika sudah ada canvas sebelumnya
+    chartContainer.innerHTML = '';
 
-function getOrCreateChartData(tfLabel, tfSeconds) {
-    if (window.tfDataCache[tfLabel]) {
-        return window.tfDataCache[tfLabel];
-    }
-
-    const data = [];
-    const nowSeconds = Math.floor(Date.now() / 1000);
-    const currentCandleTime = Math.floor(nowSeconds / tfSeconds) * tfSeconds;
-    
-    let startTime = currentCandleTime - (100 * tfSeconds);
-    let lastClose = window.currentGlobalPrice - (Math.random() * 15);
-
-    for (let i = 0; i < 100; i++) {
-        let candleTime = startTime + (i * tfSeconds);
-        let open = lastClose;
-        let vol = (tfSeconds / 900) * 1.5; 
-        let change = (Math.random() - 0.48) * vol;
-        let close = open + change;
-
-        if (i === 99) close = window.currentGlobalPrice;
-
-        let high = Math.max(open, close) + (Math.random() * vol * 0.5);
-        let low = Math.min(open, close) - (Math.random() * vol * 0.5);
-
-        data.push({ time: candleTime, open: Number(open.toFixed(2)), high: Number(high.toFixed(2)), low: Number(low.toFixed(2)), close: Number(close.toFixed(2)) });
-        lastClose = close;
-    }
-
-    window.tfDataCache[tfLabel] = data;
-    return data;
-}
-
-function loadChartUI(tfLabel) {
-    const tfSeconds = getTFSeconds(tfLabel);
-    const data = getOrCreateChartData(tfLabel, tfSeconds);
-    
-    if (data.length > 0) {
-        let lastCandle = data[data.length - 1];
-        lastCandle.close = window.currentGlobalPrice;
-        lastCandle.high = Math.max(lastCandle.high, window.currentGlobalPrice);
-        lastCandle.low = Math.min(lastCandle.low, window.currentGlobalPrice);
-    }
-
-    candleSeries.setData(data);
-    chart.timeScale().fitContent();
-}
-
-loadChartUI('15M');
-
-// Fix Chart Height & Width Responsiveness
-window.addEventListener('resize', () => {
-    if (chartContainer && window.chartInstance) {
-        const newWidth = chartContainer.clientWidth;
-        const newHeight = chartContainer.clientHeight || 380;
-        window.chartInstance.applyOptions({ width: newWidth, height: newHeight });
-    }
-});
-
-// Timeframe Buttons
-const tfButtons = document.querySelectorAll('.tf-btn');
-tfButtons.forEach(btn => {
-    btn.addEventListener('click', (e) => {
-        tfButtons.forEach(b => b.classList.remove('active'));
-        e.target.classList.add('active');
-
-        window.activeTimeframeLabel = e.target.textContent.trim();
-        window.activeTimeframeSeconds = getTFSeconds(window.activeTimeframeLabel);
-        
-        loadChartUI(window.activeTimeframeLabel);
+    chart = LightweightCharts.createChart(chartContainer, {
+        width: chartContainer.clientWidth,
+        height: chartContainer.clientHeight || 380,
+        layout: {
+            backgroundColor: '#121212',
+            textColor: '#d1d4dc',
+        },
+        grid: {
+            vertLines: { color: '#1f2937' },
+            horzLines: { color: '#1f2937' },
+        },
+        crosshair: {
+            mode: LightweightCharts.CrosshairMode.Normal,
+        },
+        rightPriceScale: {
+            borderColor: '#374151',
+        },
+        timeScale: {
+            borderColor: '#374151',
+            timeVisible: true,
+            secondsVisible: false,
+        },
     });
-});
 
-// Fullscreen Control
-const fullscreenBtn = document.getElementById('fullscreen-btn');
-const chartWrapper = document.getElementById('chart-container-wrapper');
-if (fullscreenBtn && chartWrapper) {
-    fullscreenBtn.addEventListener('click', () => {
-        if (!document.fullscreenElement) chartWrapper.requestFullscreen?.() || chartWrapper.webkitRequestFullscreen?.();
-        else document.exitFullscreen?.() || document.webkitExitFullscreen?.();
+    // Tambahkan seri Candlestick dengan warna khas terminal Bloomberg
+    candlestickSeries = chart.addCandlestickSeries({
+        upColor: '#10b981',
+        downColor: '#ef4444',
+        borderDownColor: '#ef4444',
+        borderUpColor: '#10b981',
+        wickDownColor: '#ef4444',
+        wickUpColor: '#10b981',
     });
+
+    // Handle auto-resize chart saat ukuran layar/sidebar berubah
+    window.addEventListener('resize', () => {
+        if (chart && chartContainer) {
+            chart.applyOptions({
+                width: chartContainer.clientWidth,
+                height: chartContainer.clientHeight || 380
+            });
+        }
+    });
+
+    // Muat data historis pertama kali
+    loadMarketData(currentSymbol, currentInterval);
+}
+
+// --- 2. Fetch Data Historis (Kline / Candlestick) via REST API ---
+async function loadMarketData(symbol, interval) {
+    try {
+        const response = await fetch(`https://api.binance.com/api/v3/klines?symbol=${symbol}&interval=${interval}&limit=200`);
+        const data = await response.json();
+
+        // Format data dari Binance ke format Lightweight Charts
+        const formattedCandles = data.map(d => ({
+            time: Math.floor(d[0] / 1000), // Convert ms ke seconds
+            open: parseFloat(d[1]),
+            high: parseFloat(d[2]),
+            low: parseFloat(d[3]),
+            close: parseFloat(d[4]),
+        }));
+
+        candlestickSeries.setData(formattedCandles);
+
+        // Pasang koneksi WebSocket untuk live streaming
+        connectWebSocket(symbol, interval);
+
+    } catch (error) {
+        console.error("Gagal mengambil data pasar:", error);
     }
-    
+}
+
+// --- 3. Live Streaming Update via WebSocket ---
+function connectWebSocket(symbol, interval) {
+    // Tutup socket lama jika ada
+    if (wsSocket) {
+        wsSocket.close();
+    }
+
+    const streamName = `${symbol.toLowerCase()}@kline_${interval}`;
+    wsSocket = new WebSocket(`wss://stream.binance.com:9443/ws/${streamName}`);
+
+    wsSocket.onmessage = (event) => {
+        const message = JSON.parse(event.data);
+        if (message.e === 'kline') {
+            const k = message.k;
+            const candle = {
+                time: Math.floor(k.t / 1000),
+                open: parseFloat(k.o),
+                high: parseFloat(k.h),
+                low: parseFloat(k.l),
+                close: parseFloat(k.c),
+            };
+
+            // Update candle terakhir secara live di chart
+            candlestickSeries.update(candle);
+
+            // Update harga di watchlist / header jika elemen tersedia
+            updateHeaderPrice(candle.close);
+        }
+    };
+}
+
+// Helper untuk memperbarui teks harga saat ini di header/watchlist
+function updateHeaderPrice(price) {
+    const priceElements = document.querySelectorAll('.current-price, .xauusd-price');
+    priceElements.forEach(el => {
+        el.textContent = price.toFixed(2);
+    });
+}
+
+// --- 4. Event Listener untuk Tombol Timeframe (15M, 1H, 4H, 1D) ---
+function setupTimeframeButtons() {
+    const tfButtons = document.querySelectorAll('.timeframe-btn, .tf-btn');
+    tfButtons.forEach(btn => {
+        btn.addEventListener('click', (e) => {
+            tfButtons.forEach(b => b.classList.remove('active'));
+            btn.classList.add('active');
+
+            const tfText = btn.textContent.trim().toUpperCase();
+            if (timeframeMap[tfText]) {
+                currentInterval = timeframeMap[tfText];
+                loadMarketData(currentSymbol, currentInterval);
+            }
+        });
+    });
+}
+
+// Inisialisasi saat DOM siap
+document.addEventListener('DOMContentLoaded', () => {
+    initChart();
+    setupTimeframeButtons();
+});
+            
