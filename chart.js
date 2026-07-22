@@ -17,7 +17,7 @@ const chart = LightweightCharts.createChart(chartContainer, {
     },
     rightPriceScale: {
         borderColor: '#222222',
-        autoScale: true, // Memaksa chart selalu auto-fit ke harga terbaru
+        autoScale: true,
     },
     timeScale: {
         borderColor: '#222222',
@@ -47,35 +47,43 @@ if (typeof chart.addCandlestickSeries === 'function') {
     });
 }
 
-// Global variable agar bisa diakses oleh dataProvider.js
-window.lastGeneratedPrice = 2341.50;
+// Simpan data state ke window
+window.lastCandleState = null;
 
 function generateDummyData() {
     const data = [];
-    let nowSeconds = Math.floor(Date.now() / 1000);
-    let startTime = nowSeconds - (100 * 900); // 100 candle M15
-    let lastClose = 2335.00; // Mulai dari harga lebih rendah agar mendekati 2341 saat ini
+    const intervalSeconds = 900; // Timeframe 15M (900 detik)
+    const nowSeconds = Math.floor(Date.now() / 1000);
+    
+    // Tentukan waktu candle aktif saat ini
+    const currentCandleTime = Math.floor(nowSeconds / intervalSeconds) * intervalSeconds;
+    
+    // Hitung mundur 80 candle dari sekarang
+    let startTime = currentCandleTime - (80 * intervalSeconds);
+    let lastClose = 2335.00; // Harga awal
 
-    for (let i = 0; i < 100; i++) {
-        let candleTime = startTime + (i * 900);
+    for (let i = 0; i < 80; i++) {
+        let candleTime = startTime + (i * intervalSeconds);
         let open = lastClose;
-        let change = (Math.random() - 0.48) * 1.5; // Volatilitas lebih realistis
+        let change = (Math.random() - 0.48) * 1.2;
         let close = open + change;
-        let high = Math.max(open, close) + (Math.random() * 0.8);
-        let low = Math.min(open, close) - (Math.random() * 0.8);
+        let high = Math.max(open, close) + (Math.random() * 0.6);
+        let low = Math.min(open, close) - (Math.random() * 0.6);
 
-        data.push({
+        let candleObj = {
             time: candleTime,
             open: Number(open.toFixed(2)),
             high: Number(high.toFixed(2)),
             low: Number(low.toFixed(2)),
             close: Number(close.toFixed(2))
-        });
+        };
+
+        data.push(candleObj);
         lastClose = close;
     }
-    
-    // Simpan harga close terakhir untuk disambung live streaming
-    window.lastGeneratedPrice = lastClose;
+
+    // Simpan candle terakhir agar disambung oleh dataProvider.js secara persis
+    window.lastCandleState = Object.assign({}, data[data.length - 1]);
     return data;
 }
 
@@ -85,6 +93,7 @@ if (candleSeries) {
     chart.timeScale().fitContent();
 }
 
+// Auto Resize
 window.addEventListener('resize', () => {
     if (chartContainer) {
         chart.applyOptions({
@@ -94,7 +103,7 @@ window.addEventListener('resize', () => {
     }
 });
 
-// Fullscreen Control
+// Fullscreen
 const fullscreenBtn = document.getElementById('fullscreen-btn');
 const chartWrapper = document.getElementById('chart-container-wrapper');
 
@@ -116,7 +125,7 @@ if (fullscreenBtn && chartWrapper) {
     });
 }
 
-// Timeframe Buttons
+// Timeframe switcher
 const tfButtons = document.querySelectorAll('.tf-btn');
 tfButtons.forEach(btn => {
     btn.addEventListener('click', (e) => {
@@ -128,4 +137,3 @@ tfButtons.forEach(btn => {
         }
     });
 });
-                    
